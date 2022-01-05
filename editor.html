@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+	<title>Editor</title>
+	<script src="src-noconflict/ace.js" type="text/javascript" charset="utf-8"></script>
+	<style type="text/css" media="screen">
+		*, *::before, *::after { box-sizing: border-box; }
+		body { overflow: hidden; background-color: #141414; }
+		#mainDiv { display: inline-block; width: 100%; }
+		#leftDiv { float: left; width: calc(50% - 15px); height:  90vh; margin: 10px; }
+		#rightDiv { float: right; width: calc(50% - 15px); height:  90vh; margin: 10px; margin-left: 0px; }
+		#resultDiv { border: 2px solid gray; font-family: monospace; width: 100%; padding: 4px; margin-bottom: 10px; color: #F8F8F8; }
+		#title { display: inline-block; width: 100%; background: #232323; color: #E2E2E2; }
+		#prog { position: relative; overflow-y: auto; height: 30vh; }
+		#editorDiv { border: 2px solid gray; position: relative; width: 100%; height: 50vh; padding: 4px; }
+		#editor { position: absolute; top: 0; right: 0; bottom: 0; left: 0; }
+		#tips { overflow-x: auto; border: 2px solid gray; font-family: monospace; color: #F8F8F8; width: 100%; height: 100%; margin: 0px; padding: 4px; }
+		.ace_line .ace_address { color: yellow; }
+		.ace_line .ace_name { color: orange; }
+		.ace_instruction { color: lightblue; }
+		.ace_jumpAddress:not(.ace_name) { color: yellow; }
+		.ace_jumpAddress .ace_name { color: orange; }
+		.ace_number { color: purple; }
+		.ace_constant { color: brown; }
+		.ace_comment { color: gray; }
+	</style>
+</head>
+<body>
+	<div id="mainDiv">
+		<div id="leftDiv">
+			<div id="resultDiv">
+				<label id="title"></label>
+				<p id="prog"></p>
+			</div>
+			<div id="editorDiv">
+				<pre id="editor"></pre>
+			</div>
+		</div>
+		<div id="rightDiv">
+			<pre id="tips"></pre>
+		</div>
+	</div>
+</body>
+<script>
+	function update() {
+		var addrJump = [];
+		var editorTokens = editor.session.bgTokenizer.lines;
+		var tokens = [];
+		var valid = true;
+		for (var i = 0; i < editorTokens.length; i++) {
+			var line = editorTokens[i];
+			var v = [];
+			if (line != null) {
+				for (var j = 0; j < line.length; j++) {
+					if (line[j].type != "comment") {
+						if (line[j].type == "text" && line[j].value.match("[\\S]+")) {
+							valid = false;
+							v.unshift( { type: 'error', value: 'invalid operand' } );
+							continue; }
+						if (line[j].type != "text")
+							v.push(JSON.parse(JSON.stringify(line[j]))); } }
+				if (v.length <= 0) v.push( { type:'empty', value:'' } );
+			} else break; tokens.push(v);
+			if (v[0].type == 'error') continue;
+			if (!v[0].type.match("line|empty")) {
+				valid = false;
+				v.unshift( { type: 'error', value: 'wrong start type' } );
+				continue; }
+			if (v[0].type.match("line.address") && v.length <= 1) {
+				valid = false;
+				v.unshift( { type: 'error', value: 'no operand' } );
+				continue; }
+			if (v.length > 1) {
+				if (v[1].type.match("naked|constant") && v.length != 2)
+					v.unshift( { type: 'error', value: 'wrong line length' } );
+				if (v[1].type.match("operand|jump") && v.length != 3)
+					v.unshift( { type: 'error', value: 'wrong line length' } );
+				if (v[0].type == 'error') { valid = false; continue; }
+				if (v[1].type.match("operand") && !v[2].type.match("number"))
+					v.unshift( { type: 'error', value: 'wrong operand type' } );
+				if (v[1].type.match("jump") && !v[2].type.match("jumpAddress"))
+					v.unshift( { type: 'error', value: 'wrong operand type' } );
+				if (v[0].type == 'error') { valid = false; continue; } }
+			if (v[0].type.match("line.name")) {
+				addrJump.push({name: v[0].value.replace(':', ''), line: i, value: -1, type: ""}); 
+				v[0] = { type: 'empty', value: 'address name' }; } }
+		for (var i = 0; i < addrJump.length; i++) {
+			var t = false;
+			for (var j = addrJump[i].line + 1; j < tokens.length; j++) {
+				if (tokens[j][0].type.match("empty")) continue;
+				if (tokens[j][0].type.match("address")) {
+					addrJump[i].value = tokens[j][0].value.replace(':', '');
+					if (tokens[j][0].type.match("hexadecimal"))
+						addrJump[i].type = "hexadecimal";
+					else
+						addrJump[i].type = "decimal";
+					t = true; } break; }
+			if (t == false) {
+				valid = false;
+				v.unshift({type: 'error', value: 'invalid address number'}); } }
+		for (var i = 0; i < tokens.length; i++) {
+			var v = tokens[i];
+			if (v.length == 3 && v[2].type.match("jumpAddress.name")) {
+				var ret = addrJump.find(function(data) { return data.name == this; }, v[2].value);
+				if (ret != null) {
+					v[2].type = v[2].type.replace('name', ret.type);
+					v[2].value = ret.value;
+				} else {
+					valid = false;
+					v.unshift({type: 'error', value: 'unknown address name'}); } } }
+		if (valid == true) {
+			function extractNumber(a) {
+				var b = a.value.replace('#', '');
+				if (a.type.match("hexadecimal"))
+					return parseInt("0x" + b);
+				if (a.type.match("decimal"))
+					return parseInt(b); }
+			function getFormatedNumber(a, n) { return extractNumber(a).toString(16).padStart(n, '0'); }
+			for (var i = tokens.length - 1; i >= 0; i--) { if (tokens[i][0].type == "empty") tokens.splice(i, 1); }
+			var prog = [];
+			var currAddr = 0;
+			for (var i = 0; i < tokens.length; i++) {
+				var line = tokens[i];
+				if (line[0].type.match("line.address")) {
+					var nextAddr = extractNumber(line[0]);
+					while (currAddr < nextAddr) { prog.push("00"); currAddr++; } currAddr++;
+					if (line[1].type.match("assembly.constant"))
+						prog.push(getFormatedNumber(line[1], 2));
+					else if (line[1].type.match("assembly.instruction.naked")) {
+						switch(line[1].value) {
+							case "nop": prog.push("00"); break;
+							case "out": prog.push("e0"); break;
+							case "hlt": prog.push("f0"); break;
+							default: prog.push("00");
+						} } else if (line[1].type.match("assembly.instruction.jump")) {
+						var r = "";
+						switch(line[1].value) {
+							case "jmp": r += "6"; break;
+							case "jc":  r += "7"; break;
+							case "jz":  r += "8"; break;
+							case "jnc": r += "9"; break;
+							case "jnz": r += "a"; break;
+							default: prog.push("00"); continue; }
+						if (line[2].type.match("assembly.jumpAddress.name")) {
+							var index = addrs.find(function(item) {
+								return item.name == this; }, line[2].value);
+							r += index.value.toString(16); }
+						else if (line[2].type.match("assembly.jumpAddress.[hexa]{0,1}decimal")) {
+							r += getFormatedNumber(line[2], 1); }
+						prog.push(r);}
+					else if (line[1].type.match("assembly.instruction.operand")) {
+						var r = "";
+						switch(line[1].value) {
+							case "lda": r += "1"; break;
+							case "add": r += "2"; break;
+							case "sub": r += "3"; break;
+							case "sta": r += "4"; break;
+							case "ldi": r += "5"; break;
+							case "cmp": r += "b"; break;
+							default: prog.push("00"); continue; }
+						if (line[2].type.match("assembly.number.(hexa){0,1}decimal")) {
+							r += getFormatedNumber(line[2], 1); }
+						prog.push(r); } } }
+			var r = prog[0];
+			for (var i = 1; i < prog.length; i++) r += "  " + prog[i];
+			while (r.length < 16 * 2 + 2 * 15) r += "  00";
+			r += "<br>" + parseInt(prog[0], 16).toString().padStart(3, ' ');
+			for (var i = 1; i < prog.length; i++) r += " " + parseInt(prog[i], 16).toString().padStart(3, ' ');
+			while (r.length < 16 * 5 + 3 * 15 + 4) r += "   0";
+			document.getElementById("title").innerText = "Valide code Generated :";
+			document.getElementById("prog").innerHTML = r;
+		} else {
+			var r = "";
+			for (var i = 0; i < tokens.length; i++) {
+				if (tokens[i][0].type.match("error"))
+					r += "<label>" + (i + 1).toString().padStart(2, ' ') + ": " + tokens[i][0].value + "</label><br>"; }
+			document.getElementById("title").innerText = "Errors found :";
+			document.getElementById("prog").innerHTML = r; } }
+	var editor = null;
+	window.onload = function() {
+		editor = ace.edit("editor");
+		editor.setTheme("ace/theme/twilight");
+		editor.session.setMode("ace/mode/assembly_ben");
+		editor.session.bgTokenizer.addEventListener("update", update);
+		editor.session.setValue(
+			";51 4f 50 e0 2f 94 3f e0 a6 63 00 00 00 00 92 c3\n" + "0:  ldi 1       ;load 0 in A\n" + 
+			"1:  sta 15      ;save a in 15\n" + "2:  ldi 0       ;clr a\n" + "main:\n" + 
+			"3:  out         ;output a\n" + "inc:\n" + "4:  add f       ;add mem location f to a, store to a\n" + 
+			"5:  jnc inc     ;if carry clear jump to inc\n" + "dec:\n" + 
+			"6:  sub f       ;sub mem location f to a, store to a\n" + "7:  out         ;output a\n" + 
+			"8:  jnz 6     	;if zero clear num to inc\n" + "9:  jmp main    ;jump to main\n" + 
+			"10: nop\n" + "11: nop\n" + "12: nop\n" + "13: nop\n" + "14: #146\n" + "15: #c3         ;const = 1");
+		document.getElementById("tips").innerHTML = 
+			"Instruction set\n" + 
+			"0:	NOP		0000xxxx	No Operation\n" + 
+			"1:	LDA		0001aaaa	LoaD A register\n" + 
+			"2:	ADD		0010aaaa	ADD a to b, place to a\n" + 
+			"3:	SUB		0011aaaa	SUB b from a, place to a\n" + 
+			"4:	STA		0100aaaa	STore A to ram\n" + 
+			"5:	LDI		0101IIII	LoaD Immediate\n" + 
+			"6:	JMP		0110aaaa	JuMP\n" + 
+			"7:	JC		0111aaaa	Jump if Carry flag is set\n" + 
+			"8:	JZ		1000aaaa	Jump if Zero flag is set\n" + 
+			"9:	JnC		1001aaaa	Jump if Carry flag is clear\n" + 
+			"10:	JnZ		1010aaaa	Jump if Zero flag is clear\n" + 
+			"11:	CMP		1011aaaa	CoMPare a to b\n" + 
+			"12:	\n" + 
+			"13:	\n" + 
+			"14:	OUT		1110xxxx	OUTput a to out register\n" + 
+			"15:	HLT		1111xxxx	HaLT clock"; }
+</script>
+</html>

@@ -1,0 +1,377 @@
+<!DOCTYPE HTML>
+<html>
+	<head>
+		<title>Memory Generator</title>
+		<style>
+			body { 
+				font-family: monospace;
+			}
+			div.border {
+				border: 2px solid black;
+			}
+			div.footer {
+				border: 2px solid black;
+				border-top: 0px;
+			}
+			div.scroll1 {
+                padding:4px;
+				height: 15vh;
+                overflow-x: hidden;
+                overflow-y: auto;
+                text-align:justify;
+            }
+			div.scroll2 {
+				padding:4px;
+				height: 50vh;
+				overflow-x: hidden;
+				overflow-y: auto;
+				text-align:justify;
+			}
+			table {
+				 border-collapse:collapse;
+				 width: 100%;
+				 text-align:center;
+			}
+			thead tr th {
+				position: sticky;
+				top: 0;
+			}
+			thead tr th .op {
+				position: absolute;
+				right: 0;
+			}
+			tbody {
+				padding:4px;
+				overflow-x: hidden;
+				overflow-y: auto;
+			}
+			th {
+				background: white;
+			}
+			.op {
+				width:99%;
+			}
+			.first {
+				border-left: 1px solid black;
+			}
+			.last {
+				border-right: 1px solid black;
+			}
+			.ui-dialog-titlebar-close {
+				visibility: hidden;
+			}
+			.ui-dialog {
+				border: 2px solid black;
+			}
+			.ui-dialog,.ui-widget,.ui-widget-content,.ui-corner-all {
+				background: white !important;
+			}
+		</style>
+		<script src="https://code.jquery.com/jquery-1.12.4.js"></script>
+		<script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+	</head>
+	<body>
+		<div class="border">
+			<div>Output module - 8 bits signed and unsigned</div>
+			<div class="scroll1" id="output"></div>
+		</div>
+		<div class="footer">
+			<div>Control module - 9 bits inputs to 16 control lines</div>
+			<div>
+				<!--<input type="button" value="Add" onclick="btnAddClick()">-->
+				<button id="addFunc">Add</button>
+				<input type="button" value="Generate" onclick="btnGenClick()">
+			</div>
+			<div class="scroll2" id="tbl">
+				<table>
+					<thead>
+						<tr>
+							<th></th>
+							<th class="op">OP</th>
+							<th class="first">IR</th><th>CF</th><th>ZF</th><th class="last">CNT</th>
+							<th>HLT</th><th>MI</th><th>RI</th><th>RO</th>
+							<th>IO</th><th>II</th><th>AI</th><th>AO</th>
+							<th>EO</th><th>SU</th><th>BI</th><th>OI</th>
+							<th>CE</th><th>CO</th><th>J</th><th>FI</th>
+						</tr>
+					</thead>
+					<tbody id="ib">
+						<tr id="fetch0">
+							<td rowspan="2"></td>
+							<td class="op" rowspan="2">fetch</td>
+							<td class="first" rowspan="2">-</td><td rowspan="2">-</td><td rowspan="2">-</td><td class="last">0</td>
+							<td><input type='checkbox' id="fetch0_hlt"></td><td><input type='checkbox' id="fetch0_mi"></td>
+							<td><input type='checkbox' id="fetch0_ri" ></td><td><input type='checkbox' id="fetch0_ro"></td>
+							<td><input type='checkbox' id="fetch0_io" ></td><td><input type='checkbox' id="fetch0_ii"></td>
+							<td><input type='checkbox' id="fetch0_ai" ></td><td><input type='checkbox' id="fetch0_ao"></td>
+							<td><input type='checkbox' id="fetch0_eo" ></td><td><input type='checkbox' id="fetch0_su"></td>
+							<td><input type='checkbox' id="fetch0_bi" ></td><td><input type='checkbox' id="fetch0_oi"></td>
+							<td><input type='checkbox' id="fetch0_ce" ></td><td><input type='checkbox' id="fetch0_co"></td>
+							<td><input type='checkbox' id="fetch0_j"  ></td><td><input type='checkbox' id="fetch0_fi"></td>
+						</tr>
+						<tr id="fetch1">
+							<td class="last">1</td>
+							<td><input type='checkbox' id="fetch1_hlt"></td><td><input type='checkbox' id="fetch1_mi"></td>
+							<td><input type='checkbox' id="fetch1_ri" ></td><td><input type='checkbox' id="fetch1_ro"></td>
+							<td><input type='checkbox' id="fetch1_io" ></td><td><input type='checkbox' id="fetch1_ii"></td>
+							<td><input type='checkbox' id="fetch1_ai" ></td><td><input type='checkbox' id="fetch1_ao"></td>
+							<td><input type='checkbox' id="fetch1_eo" ></td><td><input type='checkbox' id="fetch1_su"></td>
+							<td><input type='checkbox' id="fetch1_bi" ></td><td><input type='checkbox' id="fetch1_oi"></td>
+							<td><input type='checkbox' id="fetch1_ce" ></td><td><input type='checkbox' id="fetch1_co"></td>
+							<td><input type='checkbox' id="fetch1_j"  ></td><td><input type='checkbox' id="fetch1_fi"></td>
+						</tr>
+						<tr id="fetch3">
+							<td></td>
+						</tr>
+					</tbody>
+				</table>
+			</div>
+			<div class="scroll1" id="ctrl"></div>
+		</div>
+		<div id="dialog-form" title="Add OP">
+			<p class="validateTips"></p>
+			<form>
+				<fieldset>
+					<label for="name">OP</label>
+					<input type="text" name="name" id="name" value="NOP" class="text ui-widget-content ui-corner-all"><br>
+					<label for="index">IR</label>
+					<input type="number" min="0" max="15" name="index" id="index" value="0" class="number ui-widget-content ui-corner-all"><br>
+					<label for="cFlag">C Flag</label>
+					<input type="checkbox" name="cFlag" id="cFlag" class="checkbox ui-widget-content ui-corner-all"><br>
+					<label for="zFlag">Z Flag</label>
+					<input type="checkbox" name="zFlag" id="zFlag" class="checkbox ui-widget-content ui-corner-all">
+					<input type="submit" tabindex="-1" style="position:absolute; top:-1000px">
+				</fieldset>
+			</form>
+		</div>
+	</body>
+	<script type="text/javascript">
+		function generateOutput() {
+			var numbers =  [
+					"3F", "06", "5B", "4F", "66", "6D", "7D", "07", 
+					"7F", "6F", "77", "7C", "39", "5E", "79", "71" ];
+			var neg = ["00", "40"];
+			var header = "v3.0 hex words addressed";
+			var retVal = "";
+			var addr = 0;
+			retVal += header + '<br>';
+			for (var i = 0; i < 256; i+=8) {
+				retVal += addr.toString(16).padStart(3, '0') + ":";
+				for (var j = 0; j < 8; j++) {
+					var a = i + j;
+					var strA = a.toString(10).padStart(3, '0');
+					retVal += " " + neg[0] + numbers[parseInt(strA.charAt(0))]
+								  + numbers[parseInt(strA.charAt(1))]+ numbers[parseInt(strA.charAt(2))];
+				}
+				addr += 8;
+				retVal += '<br>';
+			}
+			for (var i = 0; i < 128; i+=8){
+				retVal += addr.toString(16).padStart(3, '0') + ":";
+				for (var j = 0; j < 8; j++) {
+					var a = i + j;
+					var strA = a.toString(10).padStart(3, '0');
+					retVal += " " + neg[0] + numbers[parseInt(strA.charAt(0))]
+								  + numbers[parseInt(strA.charAt(1))] + numbers[parseInt(strA.charAt(2))];
+				}
+				addr += 8;
+				retVal += '<br>';
+			}
+			for (var i = -128; i < 0; i+=8) {
+				retVal += addr.toString(16).padStart(3, '0') + ":";
+				for (var j = 0; j < 8; j++) {
+					var a = Math.abs(i + j);
+					var strA = a.toString(10).padStart(3, '0');
+					retVal += " " + neg[1] + numbers[parseInt(strA.charAt(0))]
+								  + numbers[parseInt(strA.charAt(1))] + numbers[parseInt(strA.charAt(2))];
+				}
+				addr += 8;
+				retVal += '<br>';
+			}
+			document.getElementById("output").innerHTML = retVal;
+		}
+		
+		function btnGenClick() {
+			var header = "v3.0 hex words addressed";
+			var retVal = "";
+			var addr = 0;
+			function findLine(lst, line) {
+				for (var i = 0; i < lst.length; i++) {
+					if (lst[i].id.endsWith(line) == true)
+						return lst[i].checked == true;
+				}
+				return false;
+			}
+			function getVal(pname, phase) {
+				var lines = [ "hlt", "mi", "ri", "ro", "io", "ii", "ai", "ao", 
+						      "eo",  "su", "bi", "oi", "ce", "co", "j",  "fi" ];
+				var lst = document.querySelectorAll('[id^="' + pname + phase + '_"]');
+				var a = 0;
+				for (var i = 0; i < lines.length; i++)
+					a += findLine(lst, lines[i]) == true ? Math.pow(2, (lines.length - i - 1)) : 0;
+				return a.toString(16).padStart(4, '0');
+			}
+			var numList = document.querySelectorAll('[id$="_num"]');
+			var opList = [];
+			for (var i = 0; i < 16; i++) {
+				var j = 0;
+				while (j < numList.length) {
+					var nl = numList[j];
+					if (nl.innerHTML == i.toString()) {
+						var str = nl.id.toString();
+						str = str.slice(0, str.length - 4);
+						if (document.querySelectorAll('[id^="' + str + '"][id$="2"]').length > 0)
+							opList.push({ir: i, op: str, c: false, z: false});
+						else if (document.querySelectorAll('[id^="' + str + '"][id$="2cz"]').length > 0)
+							opList.push({ir: i, op: str, c: true, z: true});
+						else if (document.querySelectorAll('[id^="' + str + '"][id$="2c"]').length > 0)
+							opList.push({ir: i, op: str, c: true, z: false});
+						else if (document.querySelectorAll('[id^="' + str + '"][id$="2z"]').length > 0)
+							opList.push({ir: i, op: str, c: false, z: true});
+						j = numList.length;
+					}
+					j++;
+				}
+			}
+			var fetch = getVal("fetch", "0") + " " + getVal("fetch", "1");
+			retVal += header + '<br>';
+			for (var i = 0; i < 16; i++) {
+				var op = opList.find(function(val) { return val.ir == i; }, i);
+				var cz = "";
+				var cZ = "";
+				var Cz = "";
+				var CZ = "";
+				if (op == undefined) {
+					cz = " 0000 0000 0000"; cZ = " 0000 0000 0000"; 
+					Cz = " 0000 0000 0000"; CZ = " 0000 0000 0000";
+				} else {
+					for (var j = 2; j < 5; j++) {
+						cz += " " + getVal(op.op, j.toString() + (op.c == false ? "" : "c") + 
+																 (op.z == false ? "" : "z"));
+						cZ += " " + getVal(op.op, j.toString() + (op.c == false ? "" : "c") + 
+																 (op.z == false ? "" : "Z"));
+						Cz += " " + getVal(op.op, j.toString() + (op.c == false ? "" : "C") + 
+																 (op.z == false ? "" : "z"));
+						CZ += " " + getVal(op.op, j.toString() + (op.c == false ? "" : "C") + 
+																 (op.z == false ? "" : "Z"));
+					}
+				}
+				retVal += addr.toString(16).padStart(3, '0') + ":";
+				retVal += " " + fetch + cz + " 0000 0000 0000";
+				retVal += " " + fetch + cZ + " 0000 0000 0000";
+				addr += 16;
+				retVal += '<br>';
+				retVal += addr.toString(16).padStart(3, '0') + ":";
+				retVal += " " + fetch + Cz + " 0000 0000 0000";
+				retVal += " " + fetch + CZ + " 0000 0000 0000";
+				addr += 16;
+				retVal += '<br>';
+			}
+			document.getElementById("ctrl").innerHTML = retVal;
+		}
+		
+		function btnRemoveClick(pname) {
+			if (pname == null)
+				return;
+			var tags = document.getElementsByClassName(pname);
+			if (tags == null || tags.length <= 0)
+				return;
+			for (var i = tags.length - 1; i >= 0; i--)
+				tags[i].remove();
+		}
+		generateOutput();
+		
+		$(function() {
+			var dialog, form, name = $("#name"), index = $("#index"), cFlag = $("#cFlag"), zFlag = $("#zFlag"), 
+				allFields = $([]).add(name).add(index).add(cFlag).add(zFlag), tips = $(".validateTips");
+			
+			function updateTips(t) {
+				tips.text(t).addClass("ui-state-highlight");
+				setTimeout(function() {
+				tips.removeClass("ui-state-highlight", 1500);}, 500);
+			}
+		
+			function btnAddClick() {
+				allFields.removeClass("ui-state-error");
+				var opName = name.val();
+				var opNum = index.val().toString();
+				var cf = cFlag.is(":checked") == true;
+				var zf = zFlag.is(":checked") == true;
+				if (opName == null || opNum == null || cf == null || zf == null)
+					return;
+				var table = "";
+				var modes = [];
+				if (cf == false && zf == false) {
+					modes.push("");
+				} else if (cf == false && zf == true) {
+					modes.push("z");
+					modes.push("Z");
+				} else if (cf == true && zf == false) {
+					modes.push("c");
+					modes.push("C");
+				} else {
+					modes.push("cz");
+					modes.push("cZ");
+					modes.push("Cz");
+					modes.push("CZ");
+				}
+				var lines = [ "_hlt", "_mi", "_ri", "_ro", "_io", "_ii", "_ai", "_ao", 
+							  "_eo",  "_su", "_bi", "_oi", "_ce", "_co", "_j",  "_fi" ];
+				var rSpan = 'rowspan="' + (3 * modes.length).toString() + '"';
+				for (var i = 0; i < modes.length; i++) {
+					for (var j = 2; j < 5; j++) {
+						table += "<tr class=\"" + opName + "\" id=\"" + 
+								 opName + j.toString() + modes[i] + "\">\r\n";
+						if (i == 0 && j == 2)
+							table += "	<td " + rSpan + 
+									 "><input type='button' value='-' onclick=\"btnRemoveClick('" + 
+									 opName + "')\"></td>\r\n" + 
+									 "	<td class=\"op\" " + rSpan + ">" + opName + "</td>\r\n" + 
+									 "	<td class=\"first\" id=\"" + opName + "_num\" " + rSpan + ">" + opNum + 
+									 "</td>\r\n";
+						if (j == 2)
+							table += "   <td rowspan=\"3\">" + (modes[0].includes("c") ? 
+												Math.floor(2 * i / modes.length).toString() : "-") + 
+									 "</td>\r\n" + 
+									 "   <td rowspan=\"3\">" + (modes[0].includes("z") ? 
+												(i % 2).toString() : "-") + 
+									 "</td>\r\n";
+						table += "   <td class=\"last\">" + j.toString() + "</td>\r\n";
+								
+						for (var k = 0; k < lines.length; k++)
+							table += "	<td><input type='checkbox' id=\"" + opName + j.toString() + 
+									 modes[i] + lines[k] + "\"></td>\r\n";
+						table += "</tr>\r\n";
+					}
+				}
+				
+				table += "<tr class=\"" + opName + "\">\r\n" + "	<td></td>\r\n" + "</tr>";
+				var tbl = document.getElementById("ib"); tbl.innerHTML += table;
+				dialog.dialog("close");
+				return true;
+			}
+			
+			dialog = $("#dialog-form").dialog({
+				autoOpen: false, height: 200, width: 250, modal: true, 
+				buttons: {
+					"Add function": btnAddClick, 
+					Cancel: function() {
+						dialog.dialog("close");
+					}
+				}, 
+				close: function() {
+					form[0].reset();
+					allFields.removeClass("ui-state-error");
+				}
+			});
+			form = dialog.find("form").on("submit", function(event) {
+				event.preventDefault();
+				btnAddClick();
+			});
+			
+			$("#addFunc").button().on("click", function() {
+				dialog.dialog("open");
+			});
+		});
+	</script>
+</html>
